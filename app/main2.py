@@ -1,7 +1,6 @@
-# app/unified_parser.py — Unified Email, Form, and Invoice Parser → Google Sheets
 from __future__ import annotations
-
 import os
+import base64
 import re
 import html
 import logging
@@ -16,6 +15,7 @@ from bs4 import BeautifulSoup
 from html import unescape as html_unescape
 from app.processors.invoice_reader import parse_invoices_dir as parse_invoices_from_html
 from app.processors.invoice_reader import eu_to_float
+from app.processors.pdf_invoice_reader import parse_pdf_invoices_dir
 # ===================== Configuration =====================
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -588,6 +588,10 @@ def main():
     # Parse invoices (use the new reader)
     if Path(invoices_dir).exists() and Path(invoices_dir).is_dir():
         invoice_df = parse_invoices_from_html(invoices_dir)
+    
+    # Then try PDF invoices
+        pdf_invoice_df = parse_pdf_invoices_dir(invoices_dir)
+        invoice_df = pd.concat([invoice_df, pdf_invoice_df], ignore_index=True)    
     else:
         st.warning(f"Invoices directory not found: {invoices_dir}")
     
@@ -787,16 +791,30 @@ def main():
             chip_html("⚠️", priority, "priority") if priority else "",
         ])
 
-        # Render entry card
+        # Add PDF download capability
+        pdf_base64 = ""
+        if entry_type == "INVOICE" and Path(source_path).exists() and Path(source_path).suffix.lower() == '.pdf':
+            try:
+                with open(source_path, "rb") as pdf_file:
+                    pdf_base64 = base64.b64encode(pdf_file.read()).decode('utf-8')
+            except Exception as e:
+                logger.error(f"Error reading PDF file: {e}")
+        # Render entry card with download button
+        footer_html = f"""
+        <div class='email-footer'>
+          <div class='footer-items'>
+            <span class='source-path' title='{html.escape(source_path)}'>Source: {html.escape(source_path)}</span>
+           {f'<a href="data:application/pdf;base64,{pdf_base64}" download="{html.escape(source)}" class="download-btn">📥Download</a>' if pdf_base64 else ''}
+           </div>
+          <span>Type: {entry_type}</span>
+        </div>
+        """
         st.markdown(f"""
         <div class='email-card'>
           <div class='email-meta'>{chips_html}</div>
           <div class='email-subject'>{html.escape(source)}</div>
           <div class='email-body'>{msg_html}</div>
-          <div class='email-footer'>
-            <span>Source: {source_path}</span>
-            <span>Type: {entry_type}</span>
-          </div>
+          {footer_html}
         </div>
         """, unsafe_allow_html=True)
 
