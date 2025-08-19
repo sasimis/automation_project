@@ -1,0 +1,15 @@
+
+streamlit==1.36.0
+pydantic==2.7.1
+beautifulsoup4==4.12.3
+lxml==5.2.2
+pandas==2.2.2
+openpyxl==3.1.5
+python-dateutil==2.9.0.post0
+gspread==6.1.2
+google-auth==2.30.0
+pytest==8.2.0
+loguru==0.7.2
+pyyaml==6.0.1
+pdfplumber==0.11.0
+streamlit-autorefresh==1.0.1
