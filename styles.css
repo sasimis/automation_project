@@ -32,10 +32,10 @@ body {
 
 /* Email card */
 .email-card {
-  border: 1px solid #1e293b33;
+  border: 1px solid black;
   border-radius: 16px;
   padding: 16px 18px;
-  background: linear-gradient(180deg, rgba(15,23,42,.85), rgba(2,6,23,.85));
+  background: #41506b;
   box-shadow: 0 8px 24px rgba(0,0,0,.25);
   margin-bottom: 1.5rem;
 }
@@ -89,11 +89,11 @@ cursor: pointer;
 
 /* Email body */
 .email-body {
-  background:#0d1320; 
+  background:#263849; 
   border: 1px solid #1f2937;
   border-radius: 12px;
   padding: 20px;
-  font: 400 15px/1.6 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font: 400 15px/1.6 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
   color: #e2e8f0;
   overflow: auto;
   max-height: 500px;
@@ -250,6 +250,43 @@ cursor: pointer;
   overflow: hidden; /* Prevent content from expanding */
 }
 
+/* Action rows for accept/reject/edit */
+.action-row {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-start;
+    align-items: center;
+    margin: 0.5em 0 1em 0;
+}
+
+/* Icon buttons for actions */
+.icon-btn {
+    background: linear-gradient(135deg, #232946 0%, #1a2233 100%);
+    border: 1px solid #334155;
+    color: #e0e7ef;
+    font-size: 1.25rem;
+    border-radius: 8px;
+    padding: 4px 10px;
+    margin: 0;
+    cursor: pointer;
+    transition: background 0.15s, border 0.15s;
+    min-width: 36px;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-btn.accept { background: #1e293b; }
+.icon-btn.reject { background: #1e293b; }
+.icon-btn.edit   { background: #1e293b; }
+
+.icon-btn:hover {
+    background: #334155;
+    border-color: #3b82f6;
+    color: #93c5fd;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .email-card {
@@ -318,4 +355,3 @@ cursor: pointer;
   text-overflow: ellipsis;
   max-width: 300px;
 }
-

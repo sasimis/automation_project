@@ -7,15 +7,23 @@ import logging
 from email import policy
 from email.parser import BytesParser
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any
 import pandas as pd
 import streamlit as st
 from dateutil import parser as dateparse
 from bs4 import BeautifulSoup
 from html import unescape as html_unescape
-from app.processors.invoice_reader import parse_invoices_dir as parse_invoices_from_html
-from app.processors.invoice_reader import eu_to_float
-from app.processors.pdf_invoice_reader import parse_pdf_invoices_dir
+from gspread_dataframe import set_with_dataframe
+from datetime import datetime
+from processors.invoice_reader import parse_invoices_dir as parse_invoices_from_html
+from processors.invoice_reader import eu_to_float
+from processors.pdf_invoice_reader import parse_pdf_invoices_dir
+import decimal
+import sqlite3
+import gspread
+import json
+from fpdf import FPDF
+from weasyprint import HTML
 # ===================== Configuration =====================
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -42,7 +50,6 @@ def sanitize_field(val: str) -> str:
 
 def connect_gsheet(sheet_id: str, creds_path: Optional[str] = None, creds_dict: Optional[dict] = None):
     """Connect to Google Sheets"""
-    import gspread
     if creds_dict:
         return gspread.service_account_from_dict(creds_dict).open_by_key(sheet_id)
     elif creds_path:
@@ -57,21 +64,23 @@ def upsert_worksheet(sh, title: str, rows: int = 1000, cols: int = 20):
         return sh.add_worksheet(title=title, rows=rows, cols=cols)
 
 # --- Money parsing helpers (EU/US aware) for EMAILS ---
-
 def eu_to_float(x):
-    """'€1.054,00' | '5.208,00' | '1,234.56' -> float; invalid -> <NA>."""
-    if x is None or x == "" and  type(x) is str:
-        
+    """Converts EU/US formatted money strings to float."""
+    if x is None or (isinstance(x, str) and x.strip() == ""):
         return pd.NA
     s = str(x)
     raw = re.sub(r"[^\d,.\-+]", "", s)
-    if raw.count(",") >= 1 and raw.count(".") >= 1:
-        raw = raw.replace(".", "").replace(",", ".")     # 5.208,00 -> 5208.00
+    # US style: 1,234.56 (comma thousands, dot decimal)
+    if re.match(r"^\d{1,3}(,\d{3})+(\.\d+)?$", raw):
+        raw = raw.replace(",", "")
+    # EU style: 1.234,56 (dot thousands, comma decimal)
+    elif re.match(r"^\d{1,3}(\.\d{3})+(,\d+)?$", raw):
+        raw = raw.replace(".", "").replace(",", ".")
+    # Only comma decimal: 1234,56
     elif raw.count(",") == 1 and raw.count(".") == 0:
-        raw = raw.replace(",", ".")                      # 850,00 -> 850.00
-    elif raw.count(".") >= 1 and raw.count(",") == 0:
-        if re.fullmatch(r"\d{1,3}(?:\.\d{3})+", raw):
-            raw = raw.replace(".", "")                   # 5.208 -> 5208
+        raw = raw.replace(",", ".")
+    # Only dot decimal: 1234.56
+    # else: leave as is
     try:
         return float(raw)
     except Exception:
@@ -126,6 +135,28 @@ def extract_money_from_text(text: str):
         "vat_is_rate": pd.isna(vat_amount) and pd.notna(vat_rate),
     }
 
+# Database functions
+def load_entries_from_db():
+    """Load all entries from SQLite database"""
+    conn = sqlite3.connect("data.db")
+    try:
+        df = pd.read_sql("SELECT * FROM entries", conn)
+    except Exception as e:
+        logger.error(f"Error loading from database: {e}")
+        df = pd.DataFrame()
+    finally:
+        conn.close()
+    return df
+
+def save_entries_to_db(df):
+    """Save entries to SQLite database"""
+    conn = sqlite3.connect("data.db")
+    try:
+        df.to_sql("entries", conn, if_exists="replace", index=False)
+    except Exception as e:
+        logger.error(f"Error saving to database: {e}")
+    finally:
+        conn.close()
 
 # ===================== Email Parsing =====================
 GREEK_FIELD_PATTERNS = {
@@ -179,8 +210,6 @@ def parse_eml(path: Path) -> Dict[str, str]:
     content, is_html = _extract_content(msg)
     lines = [l for l in content.split("\n") if l.strip()] if not is_html else []
 
-    
-
     data = {
         "type": "EMAIL",
         "source": path.name,
@@ -202,8 +231,6 @@ def parse_eml(path: Path) -> Dict[str, str]:
         "message": content,
         "is_html": is_html
     }
-
-    
 
     # Parse date
     try:
@@ -228,7 +255,7 @@ def parse_eml(path: Path) -> Dict[str, str]:
     elif re.search(r"\bwebsite\b", lower_body):
         data["service_interest"] = "Website"
     
-    # --- Add this block to extract invoice fields from email body ---
+    # Extract invoice fields from email body
     invoice_patterns = {
         "amount": r"(?:Καθαρή Αξία|Net|Subtotal)[\s:]*([€\d\.,]+)",
         "vat": r"(?:ΦΠΑ 24%|VAT|Tax)[\s:]*([€\d\.,]+)",
@@ -257,8 +284,8 @@ def parse_eml(path: Path) -> Dict[str, str]:
             m = re.search(r"\b(TF-|IN|INV)-\d{4}-\d+\b", path.name)
             if m:
                 data["invoice_number"] = m.group(0)
-    # -------------------------------------------------------------
-
+            else:
+                data["invoice_number"] = "" 
     # Set client name from extracted name
     data["client_name"] = data["name"]
 
@@ -273,7 +300,6 @@ def parse_eml(path: Path) -> Dict[str, str]:
     data["vat"] = vat_amount
 
     return data
-
 
 def parse_emails_dir(emails_dir: str) -> pd.DataFrame:
     """Parse all .eml files in directory"""
@@ -313,13 +339,18 @@ def parse_emails_dir(emails_dir: str) -> pd.DataFrame:
                     "is_html": False
                 })
                 
-                
     if not rows:
         return pd.DataFrame()
         
     df = pd.DataFrame(rows)
-    return df
 
+    # Convert money columns to float for emails
+    for col in ["amount", "vat", "total_amount"]:
+        if col in df.columns:
+            df[col] = df[col].apply(eu_to_float)
+
+    return df
+    
 # ===================== Form Parsing =====================
 def parse_form_file(path: Path) -> Dict[str, str]:
     """Parse HTML form file into structured data"""
@@ -471,9 +502,6 @@ def parse_forms_dir(forms_dir: str) -> pd.DataFrame:
         
     return pd.DataFrame(rows)
 
-
-
-
 # ===================== Content Formatting =====================
 def format_content(content: str, is_html: bool) -> str:
     """Format content for beautiful display"""
@@ -515,11 +543,60 @@ def format_content(content: str, is_html: bool) -> str:
         
         return f'<div class="email-content"><p>{content}</p></div>'
 
+# ===================== Data Processing =====================
+def process_data(email_df, form_df, invoice_df):
+    db_exists = os.path.exists("data.db")
+    if db_exists:
+        existing_df = load_entries_from_db()
+    else:
+        existing_df = pd.DataFrame()
+
+    # Combine new data
+    new_df = pd.concat([email_df, form_df, invoice_df], ignore_index=True)
+    new_df["status"] = "pending"  # Force new items to pending
+
+    # Merge, avoiding duplicates by 'source_path'
+    if not existing_df.empty:
+        # Remove any new items that already exist (keep DB status)
+        new_items = new_df[~new_df["source_path"].isin(existing_df["source_path"])]
+        combined_df = pd.concat([existing_df, new_items], ignore_index=True)
+    else:
+        combined_df = new_df
+
+    if combined_df.empty:
+        st.info("No data found. Add files to the specified folders.")
+        return pd.DataFrame()
+
+    # Add status column if not present
+    if "status" not in combined_df.columns:
+        combined_df["status"] = "pending"
+
+    # Convert decimals to float
+    def convert_decimal(val):
+        if isinstance(val, decimal.Decimal):
+            return float(val)
+        return val
+
+    for col in combined_df.columns:
+        combined_df[col] = combined_df[col].map(convert_decimal)
+
+    # Save merged data to DB
+    save_entries_to_db(combined_df)
+
+    # Load from DB for display
+    combined_df = load_entries_from_db()
+
+    if combined_df.empty:
+        st.info("No data found in database.")
+        return pd.DataFrame()
+
+    return combined_df
+
 # ===================== Main App =====================
 def main():
     # Load CSS from external file
     load_css("styles.css")
-    
+
     # Page configuration
     st.set_page_config(
         page_title="Custom Automation", 
@@ -528,9 +605,39 @@ def main():
         initial_sidebar_state="expanded"
     )
     st.title("📊 Custom Automation Project")
+    # Helper function for chip HTML
+    def chip_html(emoji, value, chip_type):
+        if not value:
+            return ""
+        if chip_type == "email":
+            return f"<a class='chip' href='mailto:{html.escape(str(value))}' title='Send email'>{emoji} {html.escape(str(value))}</a>"
+        elif chip_type == "company":
+            url = f"https://www.google.com/search?q={html.escape(str(value))}"
+            return f"<a class='chip' href='{url}' target='_blank' title='Search company on Google'>{emoji} {html.escape(str(value))}</a>"
+        elif chip_type == "client":
+            url = "https://contacts.google.com/"
+            return f"<a class='chip' href='{url}' target='_blank' title='Open Google Contacts'>{emoji} {html.escape(str(value))}</a>"
+        elif chip_type == "phone":
+            return f"<a class='chip' href='tel:{html.escape(str(value))}' title='Call'>{emoji} {html.escape(str(value))}</a>"
+        elif chip_type == "date":
+            # Format date for Google Calendar (YYYYMMDD)
+            try:
+                date_str = str(value)
+                if not date_str or date_str in ["", "None"]:
+                    dt = datetime.today()
+                else:
+                    dt = datetime.strptime(date_str, "%Y-%m-%d")
+                date_fmt = dt.strftime("%Y%m%d")
+                url = f"https://calendar.google.com/calendar/render?action=TEMPLATE&dates={date_fmt}/{date_fmt}"
+                return f"<a class='chip' href='{url}' target='_blank' title='Open in Google Calendar'>{emoji} {html.escape(dt.strftime('%Y-%m-%d'))}</a>"
+            except Exception:
+                return f"<span class='chip'>{emoji} {html.escape(str(value))}</span>"
+        else:
+            return f"<span class='chip'>{emoji} {html.escape(str(value))}</span>"
     
     # ===================== Sidebar =====================
     with st.sidebar:
+        st.title("⚙️ Settings")
         st.header("Data Sources")
         default_emails_dir = os.environ.get("EMAILS_DIR", "./data/emails")
         emails_dir = st.text_input("Emails folder", value=default_emails_dir)
@@ -560,7 +667,6 @@ def main():
         elif auth_mode == "Upload JSON":
             up = st.file_uploader("Service account JSON", type="json")
             if up:
-                import json
                 try:
                     creds_dict = json.load(up)
                 except json.JSONDecodeError:
@@ -595,15 +701,18 @@ def main():
     else:
         st.warning(f"Invoices directory not found: {invoices_dir}")
     
-    # Combine datasets
-    combined_df = pd.concat([email_df, form_df, invoice_df], ignore_index=True)
+    # Process and combine all data
+    combined_df = process_data(email_df, form_df, invoice_df)
     
     if combined_df.empty:
-        st.info("No data found. Add files to the specified folders.")
+        st.info("No data to display. Add files to the specified folders.")
         return
-
+    
     # ===================== Entry List View =====================
-    st.subheader(f"Found {len(combined_df)} entries ({len(email_df)} emails, {len(form_df)} forms, {len(invoice_df)} invoices)")
+    num_emails = (combined_df["type"] == "EMAIL").sum()
+    num_forms = (combined_df["type"] == "FORM").sum()
+    num_invoices = (combined_df["type"] == "INVOICE").sum()
+    st.subheader(f"Found {len(combined_df)} entries ({num_emails} emails, {num_forms} forms, {num_invoices} invoices)")
     
     # Create display version
     df_display = combined_df.copy()
@@ -616,15 +725,12 @@ def main():
     # Format money columns
     def money_fmt(val):
         try:
-            # Convert using your invoice logic for EU/GR numbers
-            if isinstance(val, str):
-                # Remove euro sign and spaces
-                val = val.replace("€", "").replace(" ", "")
-                # Replace comma with dot if needed
-                if "," in val:
-                    val = val.replace(",", "")
             num = float(val)
-            return f"€{num:,.2f}"
+            # Format as European: thousands dot, decimal comma
+            int_part, dec_part = f"{abs(num):,.2f}".split(".")
+            int_part = int_part.replace(",", ".")
+            sign = "-" if num < 0 else ""
+            return f"{sign}€{int_part},{dec_part}"
         except Exception:
             return ""
 
@@ -660,7 +766,7 @@ def main():
 
     df_display["type_emoji"] = df_display["type"].apply(type_to_emoji)
 
-# Now you can safely use the _display columns in your column_mapping and st.dataframe
+    # Now you can safely use the _display columns in your column_mapping and st.dataframe
     column_mapping = {
         "type_emoji": "",
         "type": "Type",
@@ -680,53 +786,69 @@ def main():
     }
     
     # Display entry list
+    df_to_show = df_display.copy()
+    df_to_show.index = df_to_show.index + 1
     st.dataframe(
-        df_display[list(column_mapping.keys())].rename(columns=column_mapping),
-        use_container_width=True,
-        height=500,
-        column_config={
-            "Amount": st.column_config.TextColumn("Amount", width="medium"),
-            "VAT": st.column_config.TextColumn("VAT", width="medium"),
-            "Total_Amount": st.column_config.TextColumn("Total", width="medium"),
-            # ...other columns...
-        }
-    )
+    df_to_show[list(column_mapping.keys())].rename(columns=column_mapping),
+    use_container_width=True,
+    height=500,
+    column_config={
+        "Amount": st.column_config.TextColumn("Amount", width="medium"),
+        "VAT": st.column_config.TextColumn("VAT", width="medium"),
+        "Total_Amount": st.column_config.TextColumn("Total", width="medium"),
+    }
+)
     
-# ===================== Entry Detail View =====================
-    st.subheader("Entry Details")
-    if combined_df.empty:
-        st.warning("No entries available for detail view")
+    # ===================== Entry List / Detail / Accepted-Rejected =====================
+    # Split by status
+    pending_display = df_display[df_display["status"] == "pending"].reset_index()
+    accepted_display = df_display[df_display["status"] == "accepted"].reset_index()
+    rejected_display = df_display[df_display["status"] == "rejected"].reset_index()
+
+    st.markdown(
+        f"Queue: <span style='color:orange;font-weight:bold;font-size:1.5em'>{len(pending_display)} pending</span>  •  "
+        f"<span style='color:green;font-weight:bold;font-size:1.3em'>Accepted: {len(accepted_display)}</span>  •  "
+        f"<span style='color:#eb5169;font-weight:bold;font-size:1.3em'>Rejected: {len(rejected_display)}</span>",
+        unsafe_allow_html=True,)
+
+    # Show pending table (compact)
+    st.markdown("#### Pending entries")
+    if not pending_display.empty:
+        df_to_show = pending_display.copy()
+        df_to_show.index = df_to_show.index + 1
+        st.dataframe(
+            df_to_show[list(column_mapping.keys())].rename(columns=column_mapping),
+            use_container_width=True,
+            height=300
+        )
     else:
-        def entry_label(i):
-            entry_type = combined_df.at[i, 'type']
-            emoji = (
-                "📧" if entry_type == "EMAIL"
-                else "📝" if entry_type == "FORM"
-                else "🧾"
-            )
-            date = combined_df.at[i, 'date']
-            client_name = combined_df.at[i, 'client_name']
-            invoice_number = combined_df.at[i, 'invoice_number']
-            source = combined_df.at[i, 'source']
-            # Prefer client_name, then invoice_number, then source
-            name = client_name or invoice_number or source
+        st.info("No pending entries")
+
+    # ===================== Entry Detail View (only for pending entries) =====================
+    st.subheader("Entry Details")
+    if pending_display.empty:
+        st.info("No pending entries to review")
+    else:
+        # helper to build label from the global combined_df (preserve original indices)
+        def entry_label(idx):
+            r = combined_df.loc[idx]
+            typ = r.get("type", "")
+            emoji = "📧" if typ == "EMAIL" else "📝" if typ == "FORM" else "🧾"
+            name = r.get("client_name") or r.get("invoice_number") or r.get("source")
+            date = r.get("date", "")
             return f"[{emoji}] {date} • {name}"
 
-        sel_idx = st.selectbox(
-            "Select entry to view",
-            options=combined_df.index,
-            format_func=entry_label,
-            index=0
-        )
-        
+        # use original combined_df indices (pending_display['index'] holds them)
+        options = pending_display["index"].tolist()
+        sel_idx = st.selectbox("Select pending entry to view", options=options, format_func=entry_label, index=0)
+
+        # load selected row from combined_df
         row = combined_df.loc[sel_idx]
         entry_type = row.get("type", "")
         source = row.get("source", "")
         date_val = row.get("date", "")
         client_name = row.get("client_name", "")
-        email_val = row.get("email", "")
-        phone_val = row.get("phone", "")
-        company_val = row.get("company", "")
+        # amount, vat, total_amount are not used directly here; removed to avoid unused variable warning
         service_interest = row.get("service_interest", "")
         amount = row.get("amount", "")
         vat = row.get("vat", "")
@@ -734,91 +856,243 @@ def main():
         invoice_number = row.get("invoice_number", "")
         priority = row.get("priority", "")
         message = row.get("message", "")
-        source_path = html.escape(str(row.get("source_path", "")))
+        source_path = str(row.get("source_path", ""))
         is_html_val = row.get("is_html", False)
+        email_val = row.get("email", "")
+        phone_val = row.get("phone", "")
+        company_val = row.get("company", "")
 
-        # Format the message body
+        # Format the message body once
         if entry_type == "EMAIL":
             msg_html = format_content(message, is_html_val)
         else:
-            # For forms and invoices, show as plain text
-            msg_html = f'<div class="email-content"><p>{html.escape(message).replace("\n", "<br>")}</p></div>'
-
-        # Add JavaScript for actions
-        st.markdown(f"""
-        <script>
-        function callPhone(number) {{
-            // Clean the phone number
-            const cleanNumber = number.replace(/[^0-9+]/g, '');
-            alert("Calling: " + cleanNumber + "\\n\\n(On a real device, this would initiate a phone call)");
-        }}
-
-        function replyEmail() {{
-            const email = "{html.escape(email_val)}";
-            const subject = "Regarding: {html.escape(source)}";
-            
-            if (!email) {{
-                alert("No email address found for reply");
-                return;
-            }}
-            
-            alert("Replying to: " + email + "\\nSubject: " + subject + "\\n\\n(On a real device, this would open your email client)");
-        }}
-        </script>
-        """, unsafe_allow_html=True)
+            msg_html = f'<div class="email-content"><p>{html.escape(message).replace("\\n", "<br>")}</p></div>'
 
         # Build metadata chips
-        chips = [
-            ("📅", date_val),
-            ("👤", client_name) if client_name else None,
-            ("🏢", company_val) if company_val else None,
-            ("📧", email_val) if email_val else None,
-            ("📞", phone_val) if phone_val else None,
-            ("🧩", service_interest) if service_interest else None,
-            ("🧾", invoice_number) if invoice_number else None,
-            ("⚠️", priority) if priority else None,
-        ]
-
-        # Filter out empty chips
         chips_html = "".join([
             chip_html("📅", date_val, "date"),
             chip_html("📧", email_val, "email") if email_val else "",
             chip_html("🏢", company_val, "company") if company_val else "",
             chip_html("👤", client_name, "client") if client_name else "",
             chip_html("📞", phone_val, "phone") if phone_val else "",
-            chip_html("🧾", invoice_number, "invoice") if invoice_number else "",
+            # Only show invoice number chip if it matches expected pattern
+            chip_html("🧾", invoice_number, "invoice") if entry_type == "INVOICE" and invoice_number and re.match(r"^(TF-|IN|INV)-\d{4}-\d+$", invoice_number) else "",
             chip_html("🧩", service_interest, "service") if service_interest else "",
-            chip_html("⚠️", priority, "priority") if priority else "",
+            chip_html("𝐏𝐫𝐢𝐨𝐫𝐢𝐭𝐲", priority, "priority") if priority else "",
         ])
 
-        # Add PDF download capability
-        pdf_base64 = ""
-        if entry_type == "INVOICE" and Path(source_path).exists() and Path(source_path).suffix.lower() == '.pdf':
-            try:
-                with open(source_path, "rb") as pdf_file:
-                    pdf_base64 = base64.b64encode(pdf_file.read()).decode('utf-8')
-            except Exception as e:
-                logger.error(f"Error reading PDF file: {e}")
-        # Render entry card with download button
-        footer_html = f"""
-        <div class='email-footer'>
-          <div class='footer-items'>
-            <span class='source-path' title='{html.escape(source_path)}'>Source: {html.escape(source_path)}</span>
-           {f'<a href="data:application/pdf;base64,{pdf_base64}" download="{html.escape(source)}" class="download-btn">📥Download</a>' if pdf_base64 else ''}
-           </div>
-          <span>Type: {entry_type}</span>
-        </div>
-        """
-        st.markdown(f"""
+        # Render card (only once)
+        card_html = f"""
         <div class='email-card'>
           <div class='email-meta'>{chips_html}</div>
           <div class='email-subject'>{html.escape(source)}</div>
           <div class='email-body'>{msg_html}</div>
-          {footer_html}
-        </div>
-        """, unsafe_allow_html=True)
+          <div class='email-footer'>
+            <span>Type: {row.get("type", "")}"""
 
-# ===================== Google Sheets Export =====================
+        if entry_type == "INVOICE":
+            pdf_path = Path(source_path)
+            # PDF invoice
+            if pdf_path.exists() and pdf_path.suffix.lower() == ".pdf":
+                card_html += "</span>"  # close the Type span
+                # Add a placeholder for the download button and source
+                card_html += "<span style='margin-left: 1em; display: inline-block;' id='pdf-btn-placeholder'></span>"
+                card_html += f"<span style='float:right;'>Source: {html.escape(source_path)}</span></div></div>"
+                st.markdown(card_html, unsafe_allow_html=True)
+                # Use st.columns to keep the button inline
+                cols = st.columns([0.15, 0.85])
+                with cols[0]:
+                    # Load the image and encode as base64
+                    icon_path = "assets/pdf_icon2.png"  # update path as needed
+                    with open(icon_path, "rb") as img_file:
+                        img_bytes = img_file.read()
+                        img_b64 = base64.b64encode(img_bytes).decode()
+
+                    img_md = f"![PDF](data:image/png;base64,{img_b64}) Download PDF"
+                    st.download_button(
+                    label=img_md,
+                    data=pdf_path.read_bytes(),
+                    file_name=pdf_path.name,
+                    mime="application/pdf",
+                    key=f"download_pdf_{sel_idx}",
+                    use_container_width=True,
+                    help="Download PDF",
+                    disabled=False,
+                    )
+            # HTML invoice
+            elif pdf_path.exists() and pdf_path.suffix.lower() in [".htm", ".html"]:
+                card_html += f"</span><span style='float:right;'>Source: {html.escape(source_path)}</span></div></div>"
+                st.markdown(card_html, unsafe_allow_html=True)
+                # Only generate PDF if button is clicked
+                if st.button("🧾 Export Invoice as PDF", help="Εξαγωγή αρχείου", key=f"gen_html_invoice_pdf_{sel_idx}"):
+                    with st.spinner("Δημιουργία PDF..."):
+                        pdf_bytes = html_invoice_to_pdf(str(pdf_path))
+                    st.download_button(
+                        label="⬇️ Download PDF",
+                        data=pdf_bytes,
+                        file_name=pdf_path.with_suffix(".pdf").name,
+                        mime="application/pdf",
+                        key=f"download_html_invoice_pdf_{sel_idx}",
+                        use_container_width=False,
+                        help="Λήψη PDF",
+                    )
+            else:
+                # If not a PDF or HTML, just close the Type span and footer
+                card_html += f"</span><span style='float:right;'>Source: {html.escape(source_path)}</span></div></div>"
+                st.markdown(card_html, unsafe_allow_html=True)
+        else:
+            # For non-invoice types, just close the Type span and footer
+            card_html += f"</span><span style='float:right;'>Source: {html.escape(source_path)}</span></div></div>"
+            st.markdown(card_html, unsafe_allow_html=True)
+
+                # --- Add PDF download for EMAILs with invoice_number ---
+        if (
+            entry_type == "EMAIL"
+            and invoice_number
+            and invoice_number != ""
+        ):
+            pdf_bytes = email_to_pdf(row)
+            st.download_button(
+                label="📄 Generate Email as PDF",
+                data=pdf_bytes,
+                file_name=f"{invoice_number}_email.pdf",
+                mime="application/pdf",
+                key=f"download_email_pdf_{sel_idx}",
+                use_container_width=False,
+                help="Δημιουργία PDF από email",
+            )   
+
+        # Accept/Reject/Edit form (below the body)
+        with st.form(key=f"status_form_{sel_idx}", clear_on_submit=True):
+            st.caption("**Actions**")
+            c1, c2, c3 = st.columns([1, 1, 1])
+            # Disable all actions if any edit is in progress
+            editing = "edit_idx" in st.session_state
+            with c1:
+                accept_clicked = st.form_submit_button(
+                    "✅ Accept",
+                    help="Αποδοχή",
+                    use_container_width=True,
+                    disabled=editing
+                )
+            with c2:
+                reject_clicked = st.form_submit_button(
+                    "❌ Reject",
+                    help="Απόρριψη",
+                    use_container_width=True,
+                    disabled=editing
+                )
+            with c3:
+                edit_clicked = st.form_submit_button(
+                    "✏️ Edit",
+                    help="Επεξεργασία",
+                    use_container_width=True,
+                    disabled=editing
+                )
+
+        # After the form:
+        if accept_clicked:
+            conn = sqlite3.connect("data.db")
+            try:
+                conn.execute("UPDATE entries SET status = ? WHERE source_path = ?", ("accepted", source_path))
+                conn.commit()
+                st.toast("Entry marked as accepted.", icon="✅")
+                #st.rerun()
+            except Exception as e:
+                st.toast(f"Error updating status: {e}", icon="🚫")
+                st.rerun()
+            finally:
+                conn.close()
+
+        if reject_clicked:
+            conn = sqlite3.connect("data.db")
+            try:
+                conn.execute("UPDATE entries SET status = ? WHERE source_path = ?", ("rejected", source_path))
+                conn.commit()
+                st.toast("Entry marked as rejected.", icon="❌")
+                st.rerun()
+            except Exception as e:
+                st.toast(f"Error updating status: {e}", icon="🚫")
+                st.rerun()
+            finally:
+                conn.close()
+
+        if edit_clicked:
+            st.session_state["edit_idx"] = sel_idx
+            st.rerun()  # Force immediate UI update so buttons are disabled right away
+
+        # Show edit form if triggered (outside the columns and main form)
+        if "edit_idx" in st.session_state and st.session_state["edit_idx"] == sel_idx:
+            st.markdown("#### Edit Entry")
+            with st.form(key=f"edit_form_{sel_idx}"):
+                new_client_name = st.text_input("Client Name", value=client_name, placeholder="Όνομα Πελάτη")
+                new_email = st.text_input("Email", value=email_val, placeholder="example@email.com")
+                new_phone = st.text_input("Phone", value=phone_val, placeholder="μόνο αριθμός τηλ.")
+                new_company = st.text_input("Company", value=company_val, placeholder="Εταιρεία")
+                new_service_interest = st.text_input("Service Interest", value=service_interest, placeholder="Υπηρεσία")
+                new_priority = st.selectbox(
+                    "Priority",
+                    options=["", "high", "medium", "low", "critical"],
+                    index=["", "high", "medium", "low", "critical"].index(priority.lower() if priority else "")
+                )
+                new_message = st.text_area("Message", value=message, height=150)
+                save_edit = st.form_submit_button("💾 Save")
+                cancel_edit = st.form_submit_button("❌ Cancel")
+
+            # Validation
+            email_valid = re.match(r"[^@]+@[^@]+\.[^@]+", new_email) if new_email else True
+            phone_valid = re.match(r"^\+?[\d\-]{6,}$", new_phone) if new_phone else True
+
+            if save_edit:
+                if not email_valid:
+                    st.error("Please enter a valid email address.")
+                elif not phone_valid:
+                    st.error("Please enter a valid phone number (digits only, min 6).")
+                else:
+                    conn = sqlite3.connect("data.db")
+                    try:
+                        conn.execute("""
+                            UPDATE entries SET client_name=?, email=?, phone=?, company=?, service_interest=?, priority=?, message=?
+                            WHERE source_path=?
+                        """, (new_client_name, new_email, new_phone, new_company, new_service_interest, new_priority, new_message, source_path))
+                        conn.commit()
+                        st.toast("Entry updated.", icon="✅")
+                        del st.session_state["edit_idx"]
+                        st.rerun()
+                    except Exception as e:
+                        st.toast(f"Error updating entry: {e}", icon="🚫")
+                    finally:
+                        conn.close()
+            if cancel_edit:
+                del st.session_state["edit_idx"]
+                st.rerun()
+                
+    # ===================== Accepted / Rejected lists =====================
+    with st.expander(f"Accepted ({len(accepted_display)})", expanded=False):
+        if not accepted_display.empty:
+            df_to_show = accepted_display.copy()
+            df_to_show.index = df_to_show.index + 1
+            st.dataframe(
+                df_to_show[list(column_mapping.keys())].rename(columns=column_mapping),
+                use_container_width=True,
+                height=300
+            )
+        else:
+            st.info("No accepted entries")
+
+    with st.expander(f"Rejected ({len(rejected_display)})", expanded=False):
+        if not rejected_display.empty:
+            df_to_show = rejected_display.copy()
+            df_to_show.index = df_to_show.index + 1
+            st.dataframe(
+                df_to_show[list(column_mapping.keys())].rename(columns=column_mapping),
+                use_container_width=True,
+                height=300
+            )
+        else:
+            st.info("No rejected entries")
+            
+    # ===================== Google Sheets Export =====================
     st.subheader("Export to Google Sheets")
 
     if not sheet_id:
@@ -829,8 +1103,6 @@ def main():
                  type="primary",
                  use_container_width=True) and sheet_id:
         try:
-            import gspread
-            from gspread_dataframe import set_with_dataframe
 
             # Prepare export data
             export_df = combined_df.rename(columns={
@@ -842,9 +1114,9 @@ def main():
                 "phone": "Phone",
                 "company": "Company",
                 "service_interest": "Service_Interest",
-                "amount_display": "Amount",
-                "vat_display": "VAT",
-                "total_amount_display": "Total_Amount",
+                "amount": "Amount",
+                "vat": "VAT",
+                "total_amount": "Total_Amount",
                 "invoice_number": "Invoice_Number",
                 "priority": "Priority",
                 "message": "Message"
@@ -883,39 +1155,92 @@ def main():
             st.error(f"Export failed: {str(e)}")
             logger.exception("Google Sheets export error")
 
-def chip_html(emoji, value, chip_type):
-    if not value:
-        return ""
-    if chip_type == "email":
-        return f"<a class='chip' href='mailto:{html.escape(str(value))}' title='Send email'>{emoji} {html.escape(str(value))}</a>"
-    elif chip_type == "company":
-        url = f"https://www.google.com/search?q={html.escape(str(value))}"
-        return f"<a class='chip' href='{url}' target='_blank' title='Search company on Google'>{emoji} {html.escape(str(value))}</a>"
-    elif chip_type == "client":
-        url = "https://contacts.google.com/"
-        return f"<a class='chip' href='{url}' target='_blank' title='Open Google Contacts'>{emoji} {html.escape(str(value))}</a>"
-    elif chip_type == "phone":
-        return f"<a class='chip' href='tel:{html.escape(str(value))}' title='Call'>{emoji} {html.escape(str(value))}</a>"
-    elif chip_type == "date":
-        # Format date for Google Calendar (YYYYMMDD)
-        from datetime import datetime
-        try:
-            date_str = str(value)
-            if not date_str or date_str in ["", "None"]:
-                dt = datetime.today()
-            else:
-                dt = datetime.strptime(date_str, "%Y-%m-%d")
-            date_fmt = dt.strftime("%Y%m%d")
-            url = f"https://calendar.google.com/calendar/render?action=TEMPLATE&dates={date_fmt}/{date_fmt}"
-            return f"<a class='chip' href='{url}' target='_blank' title='Open in Google Calendar'>{emoji} {html.escape(dt.strftime('%Y-%m-%d'))}</a>"
-        except Exception:
-            return f"<span class='chip'>{emoji} {html.escape(str(value))}</span>"
-    else:
-        return f"<span class='chip'>{emoji} {html.escape(str(value))}</span>"
 
-        
+def email_to_pdf(email_data: Dict[str, Any]) -> bytes:
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
 
+    # Fonts 
+    font_path = "assets/DejaVuSans.ttf"
+    pdf.add_font("DejaVu", "", font_path, uni=True)
+    pdf.add_font("DejaVu-Bold", "", font_path, uni=True)
+
+    # Colors
+    HEADER_BLUE = (44, 62, 80)
+    BORDER      = (200, 200, 200)
+    BG_GRAY     = (248, 248, 248)
+
+    pdf.add_page()
+
+    # ---- Title ----
+    pdf.set_font("DejaVu-Bold", size=18)
+    pdf.set_text_color(*HEADER_BLUE)
+    pdf.cell(0, 12, "ΤΙΜΟΛΟΓΙΟ", ln=True)
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(2)
+
+    # ---- Meta info ----
+    pdf.set_font("DejaVu", size=11)
+    meta = [
+        ("Αριθμός",   email_data.get("invoice_number", "")),
+        ("Αποστολέας", email_data.get("from_name", "")),
+        ("Παραλήπτης", email_data.get("to", "")),
+        ("Ημερομηνία", email_data.get("date_raw", "")),
+    ]
+    for label, val in meta:
+        pdf.set_font("DejaVu-Bold", size=11)
+        pdf.cell(35, 7, f"{label}:", ln=0)
+        pdf.set_font("DejaVu", size=11)
+        pdf.cell(0, 7, val or "—", ln=1)
+    pdf.ln(4)
+
+    # ---- Message box ----
+    pdf.set_font("DejaVu-Bold", size=12)
+    pdf.set_text_color(*HEADER_BLUE)
+    pdf.set_text_color(0, 0, 0)
+
+    body = email_data.get("message", "") or ""
+    lines = body.splitlines() or [""]
+
+    # Draw background box
+    x0, y0 = pdf.get_x(), pdf.get_y()
+    box_w = pdf.w - pdf.l_margin - pdf.r_margin
+    line_height = 7
+    box_h = max(20, len(lines) * line_height + 10)
+    pdf.set_fill_color(*BG_GRAY)
+    pdf.set_draw_color(*BORDER)
+    pdf.rect(x0, y0, box_w, box_h, style="DF")
+
+    # Write text inside box
+    pdf.set_xy(x0 + 3, y0 + 5)
+    pdf.set_font("DejaVu", size=11)
+    for ln in lines:
+        pdf.multi_cell(box_w - 6, line_height, ln)
+    pdf.ln(4)
+
+    # ---- Footer ----
+    pdf.set_font("DejaVu", size=9)
+    pdf.set_text_color(120, 120, 120)
+    pdf.set_text_color(0, 0, 0)
+
+    return pdf.output(dest="S").encode("latin1")
+
+def html_invoice_to_pdf(html_path: str) -> bytes:
+    """Convert HTML invoice to PDF with full HTML/CSS rendering using WeasyPrint."""
+
+    # Read HTML file
+    with open(html_path, "r", encoding="utf-8") as f:
+        html_content = f.read()
+
+    # If you have a CSS file for styling, you can add it here
+    css_path = "styles.css"
+    css_files = []
+    if os.path.exists(css_path):
+        css_files.append(css_path)
+
+    # Generate PDF
+    pdf_bytes = HTML(string=html_content, base_url=os.path.dirname(html_path)).write_pdf(stylesheets=css_files)
+    return pdf_bytes
 
 if __name__ == "__main__":
     main()
-
