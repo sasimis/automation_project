@@ -6,8 +6,6 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 import pandas as pd
 
-# If you have these helpers elsewhere, import them:
-# from .helpers import _to_iso, _smart_decimal
 
 def _smart_decimal(val: str) -> Decimal:
     """Convert a string with possible currency symbols and commas to Decimal."""

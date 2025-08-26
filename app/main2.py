@@ -24,6 +24,7 @@ import gspread
 import json
 from fpdf import FPDF
 from weasyprint import HTML
+from scroll_to_anchor import scroll_to
 # ===================== Configuration =====================
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -63,7 +64,7 @@ def upsert_worksheet(sh, title: str, rows: int = 1000, cols: int = 20):
     except Exception:
         return sh.add_worksheet(title=title, rows=rows, cols=cols)
 
-# --- Money parsing helpers (EU/US aware) for EMAILS ---
+# --- Money parsing helpers (EU/US) for EMAILS ---
 def eu_to_float(x):
     """Converts EU/US formatted money strings to float."""
     if x is None or (isinstance(x, str) and x.strip() == ""):
@@ -605,6 +606,33 @@ def main():
         initial_sidebar_state="expanded"
     )
     st.title("📊 Custom Automation Project")
+    
+    # ===================== Tutorial =====================
+    if "tutorial_step" not in st.session_state:
+        st.session_state["tutorial_step"] = 0
+
+    if st.session_state["tutorial_step"] == 0:
+        with st.container():
+            st.info("👋 **Καλωσήρθατε!** Αυτό το εργαλείο σας βοηθά να διαχειριστείτε emails, φόρμες και τιμολόγια & να τα προωθήσετε στο Google Spreadsheet. Κάνε κλικ στο Επόμενο για το tutorial.")
+            if st.button("Επόμενο➡️"):
+                st.session_state["tutorial_step"] = 1
+
+    elif st.session_state["tutorial_step"] == 1:
+        if st.button("Επόμενο➡️"):
+            st.session_state["tutorial_step"] = 2
+
+    elif st.session_state["tutorial_step"] == 2:
+        if st.button("Επόμενο➡️"):
+            st.session_state["tutorial_step"] = 3
+
+    elif st.session_state["tutorial_step"] == 3:
+        if st.button("Επόμενο➡️"):
+            st.session_state["tutorial_step"] = 4
+
+    elif st.session_state["tutorial_step"] == 4:
+        if st.button("Επόμενο➡️"):
+           st.session_state["tutorial_step"] = 5        
+    
     # Helper function for chip HTML
     def chip_html(emoji, value, chip_type):
         if not value:
@@ -637,6 +665,11 @@ def main():
     
     # ===================== Sidebar =====================
     with st.sidebar:
+        if st.session_state["tutorial_step"] == 1:
+            st.markdown(
+                "<div id='tutorial'>⬇️ Εδώ ρυθμίζετε τους φακέλους!<br>Μπορείτε να προσθέσετε περισσότερα αρχεία αρκεί το PATH να είναι σωστό. </div>",
+                unsafe_allow_html=True
+            )
         st.title("⚙️ Settings")
         st.header("Data Sources")
         default_emails_dir = os.environ.get("EMAILS_DIR", "./data/emails")
@@ -647,18 +680,29 @@ def main():
         
         default_invoices_dir = os.environ.get("INVOICES_DIR", "./data/invoices")
         invoices_dir = st.text_input("Invoices folder", value=default_invoices_dir)
-        
         st.markdown("---")
+        # Highlight Google Sheets ID field during tutorial step 2
+        if st.session_state["tutorial_step"] == 2:
+            st.markdown(
+                "<div id='tutorial'>⬇️ Εδώ εισάγετε το Google Sheets ID και πατήστε enter!</div>",
+                unsafe_allow_html=True
+            )
+
         st.header("Google Sheets")
         sheet_id = st.text_input("Google Sheet ID", value=os.environ.get("GOOGLE_SHEET_ID", ""))
-        tab_name = st.text_input("Worksheet name", value=os.environ.get("GOOGLE_WORKSHEET_NAME", "Leads"))
-
         st.markdown("---")
+        # Highlight Google Auth field during tutorial step 3
+        if st.session_state["tutorial_step"] == 3:
+            st.markdown(
+                "<div id='tutorial'>⬇️ Εδώ διαλέγετε το json για ταυτοποίηση με Google λογαριασμό!</div>",
+                unsafe_allow_html=True
+            )
+        
         st.subheader("Google Auth")
         auth_mode = st.radio("Authentication mode", ["Env var / default", "Use file path", "Upload JSON"], index=0)
         creds_path = None
         creds_dict = None
-        
+
         if auth_mode == "Use file path":
             creds_path = st.text_input(
                 "Service account JSON path", 
@@ -672,7 +716,6 @@ def main():
                 except json.JSONDecodeError:
                     st.error("Invalid JSON file")
     
-    st.caption(f"Email Folder: `{emails_dir}` | Forms Folder: `{forms_dir}` | Invoices Folder: `{invoices_dir}`")
     
     # ===================== Data Processing =====================
     email_df = pd.DataFrame()
@@ -706,8 +749,11 @@ def main():
     
     if combined_df.empty:
         st.info("No data to display. Add files to the specified folders.")
+        
         return
     
+        
+
     # ===================== Entry List View =====================
     num_emails = (combined_df["type"] == "EMAIL").sum()
     num_forms = (combined_df["type"] == "FORM").sum()
@@ -812,6 +858,7 @@ def main():
         unsafe_allow_html=True,)
 
     # Show pending table (compact)
+    st.markdown('<div id="pending-entries-anchor"></div>', unsafe_allow_html=True)
     st.markdown("#### Pending entries")
     if not pending_display.empty:
         df_to_show = pending_display.copy()
@@ -819,17 +866,38 @@ def main():
         st.dataframe(
             df_to_show[list(column_mapping.keys())].rename(columns=column_mapping),
             use_container_width=True,
-            height=300
+            height=400
         )
     else:
         st.info("No pending entries")
 
     # ===================== Entry Detail View (only for pending entries) =====================
+    tutorial_placeholder = st.empty()
+    if st.session_state.get("tutorial_step") == 4:
+        tutorial_placeholder.markdown(
+        "<div id='pending-tutorial-anchor' style='margin-top:100px;'></div>"
+        "<div id='tutorial'>⬇️ Εδώ επιλέγετε μια εγγραφή από τη dropdown λίστα Entry Details,<br>"
+        "ύστερα μπορείτε είτε να την αποδεχτείτε, απορρίψετε ή επεξεργαστείτε!<br><br>"
+        "<strong> Δίνεται επίσης η δυνατότητα:</strong><i>(αναλόγως τα δεδομένα)</i><br>"
+        "• να δημιουργήσετε ενα Google calendar, <br>"
+        "• να στείλετε e-mail στον πελάτη, <br>"
+        "• να κάνετε αναζήτηση της επιχείρησης στο διαδίκτυο,<br>"
+        "• να προσθέσετε την επαφή στο Google Contacts, <br>"
+        "• να καλέσετε τον πελάτη. <br>"
+        "Στο τέλος, πατήστε για να στείλετε/ανανεώσετε τα δεδομένα στο Google Sheets </div>",
+        unsafe_allow_html=True
+    )
+        if st.button("Επόμενο➡️", key="tutorial_next_4"):
+            st.session_state["tutorial_step"] = 5
+            st.rerun()
+        scroll_to("pending-tutorial-anchor")
+
+
     st.subheader("Entry Details")
     if pending_display.empty:
         st.info("No pending entries to review")
     else:
-        # helper to build label from the global combined_df (preserve original indices)
+        
         def entry_label(idx):
             r = combined_df.loc[idx]
             typ = r.get("type", "")
@@ -840,7 +908,7 @@ def main():
 
         # use original combined_df indices (pending_display['index'] holds them)
         options = pending_display["index"].tolist()
-        sel_idx = st.selectbox("Select pending entry to view", options=options, format_func=entry_label, index=0)
+        sel_idx = st.selectbox("Επιλέξτε εκκρεμή καταχώρηση για προβολή", options=options, format_func=entry_label, index=0)
 
         # load selected row from combined_df
         row = combined_df.loc[sel_idx]
@@ -989,15 +1057,13 @@ def main():
                     use_container_width=True,
                     disabled=editing
                 )
-
-        # After the form:
         if accept_clicked:
             conn = sqlite3.connect("data.db")
             try:
                 conn.execute("UPDATE entries SET status = ? WHERE source_path = ?", ("accepted", source_path))
                 conn.commit()
                 st.toast("Entry marked as accepted.", icon="✅")
-                #st.rerun()
+                st.rerun()
             except Exception as e:
                 st.toast(f"Error updating status: {e}", icon="🚫")
                 st.rerun()
@@ -1077,6 +1143,29 @@ def main():
                 use_container_width=True,
                 height=300
             )
+            # A simple restore list below the table
+            st.markdown("**Επαναφορά σε εκκρεμότητα:**")
+            for i, row in accepted_display.iterrows():
+                entry_name = row['client_name'] or row['invoice_number'] or row['source']
+                cols = st.columns(2)
+                with cols[0]:
+                    st.markdown(f"Εγγραφή {i+1}: {entry_name}")
+                with cols[1]:
+                    st.button(
+                        "🔄",  # Compact label
+                        key=f"restore_accepted_{row['index']}",
+                        use_container_width=False,
+                        help="Επαναφορά σε εκκρεμότητα"
+                    )
+                    if st.session_state.get(f"restore_accepted_{row['index']}"):
+                        conn = sqlite3.connect("data.db")
+                        try:
+                            conn.execute("UPDATE entries SET status = ? WHERE source_path = ?", ("pending", row["source_path"]))
+                            conn.commit()
+                            st.toast("Entry restored to pending.", icon="🔄")
+                            st.rerun()
+                        finally:
+                            conn.close()
         else:
             st.info("No accepted entries")
 
@@ -1089,66 +1178,166 @@ def main():
                 use_container_width=True,
                 height=300
             )
+            # A simple restore list below the table
+            st.markdown("**Επαναφορά σε εκκρεμότητα:**")
+            for i, row in rejected_display.iterrows():
+                entry_name = row['client_name'] or row['invoice_number'] or row['source']
+                cols = st.columns(2)
+                with cols[0]:
+                    st.markdown(f"Εγγραφή {i+1}: {entry_name}")
+                with cols[1]:
+                    st.button(
+                        "🔄",
+                        key=f"restore_rejected_{row['index']}",
+                        use_container_width=False,
+                        help="Επαναφορά σε εκκρεμότητα"
+                    )
+                    if st.session_state.get(f"restore_rejected_{row['index']}"):
+                        conn = sqlite3.connect("data.db")
+                        try:
+                            conn.execute("UPDATE entries SET status = ? WHERE source_path = ?", ("pending", row["source_path"]))
+                            conn.commit()
+                            st.toast("Entry restored to pending.", icon="🔄")
+                            st.rerun()
+                        finally:
+                            conn.close()
         else:
             st.info("No rejected entries")
             
     # ===================== Google Sheets Export =====================
     st.subheader("Export to Google Sheets")
+    # Highlight Google Sheets export during tutorial step 5
+    tutorial_placeholder = st.empty()
+    if st.session_state.get("tutorial_step") == 5:
+        tutorial_placeholder.markdown(
+            "<div id='pending-tutorial-anchor' style='margin:140px auto 0 auto;'></div>"
+            "<div id='tutorial'>Μην ξεχνάτε πως μπορείτε να επαναφέρετε εγγραφές από τις λίστες Accepted-Rejected<br>πατώντας επαναφορά εγγραφής.  <br>🎉 Το tutorial ολοκληρώθηκε!<br>"
+            "Μπορείτε να ξεκινήσετε ξανά όποτε θέλετε πάνω.</div>",
+            unsafe_allow_html=True
+        )
 
+        if st.button("Τέλος Tutorial", key="tutorial_end"):
+            st.session_state["tutorial_step"] = 0
+            tutorial_placeholder.empty()
+            st.rerun()
+
+        scroll_to("pending-tutorial-anchor")
+    elif st.session_state.get("tutorial_step") < 4:
+        tutorial_placeholder.markdown("<div style='height: 18px;'></div>", unsafe_allow_html=True)
+    
     if not sheet_id:
-        st.warning("Enter Google Sheet ID in sidebar to enable export")
+        st.warning("Εισαγάγετε το Google sheets ID στην πλαϊνή γραμμή για να ενεργοποιήσετε την εξαγωγή")
 
     if st.button("⬆️ Push all entries to Google Sheets", 
                  disabled=not sheet_id,
                  type="primary",
-                 use_container_width=True) and sheet_id:
+                 use_container_width=False) and sheet_id:
         try:
-
             # Prepare export data
-            export_df = combined_df.rename(columns={
-                "type": "Type",
-                "source": "Source",
-                "date": "Date",
-                "client_name": "Client_Name",
-                "email": "Email",
-                "phone": "Phone",
-                "company": "Company",
-                "service_interest": "Service_Interest",
-                "amount": "Amount",
-                "vat": "VAT",
-                "total_amount": "Total_Amount",
-                "invoice_number": "Invoice_Number",
-                "priority": "Priority",
-                "message": "Message"
-            })
-
-            # Select only the columns we want to export
             export_columns = [
-                "Type", "Source", "Date", "Client_Name", "Email", "Phone", "Company",
-                "Service_Interest", "Amount", "VAT", "Total_Amount", "Invoice_Number",
-                "Priority", "Message"
+                "type", "source", "date", "client_name", "email", "phone", "company",
+                "service_interest", "amount", "vat", "total_amount", "invoice_number",
+                "priority", "message"
             ]
-
             # Ensure all columns exist
             for col in export_columns:
-                if col not in export_df.columns:
-                    export_df[col] = ""
+                if col not in combined_df.columns:
+                    combined_df[col] = ""
 
-            # Export only the required columns
-            export_df = export_df[export_columns]
+            # 1. Accepted items (detailed)
+            accepted_df = combined_df[combined_df["status"] == "accepted"].copy()
+            accepted_df = accepted_df[export_columns]
+
+            # 2. Rejected items (detailed)
+            rejected_df = combined_df[combined_df["status"] == "rejected"].copy()
+            rejected_df = rejected_df[export_columns]
+
+            # Ensure numeric columns for summary calculations and export
+            for col in ["amount", "vat", "total_amount"]:
+                if col in accepted_df.columns:
+                    accepted_df[col] = pd.to_numeric(accepted_df[col], errors="coerce")
+                if col in rejected_df.columns:
+                    rejected_df[col] = pd.to_numeric(rejected_df[col], errors="coerce")
+
+            # 3. Summary: total amounts of accepted items
+            summary_data = {
+                "Total Amount": [accepted_df["total_amount"].sum()],
+                "Total VAT": [accepted_df["vat"].sum()],
+                "Total Net": [accepted_df["amount"].sum()],
+                "Count": [len(accepted_df)],
+            }
+            summary_df = pd.DataFrame(summary_data)
+            
 
             with st.spinner("Connecting to Google Sheets..."):
                 sh = connect_gsheet(sheet_id, creds_path=creds_path, creds_dict=creds_dict)
-                ws = upsert_worksheet(sh, tab_name)
 
-                # Clear existing data except header
-                if ws.row_count < len(export_df) + 1:
-                    ws.resize(rows=len(export_df) + 100, cols=len(export_columns))
+                # Write summary
+                ws_summary = upsert_worksheet(sh, "Summary", rows=10, cols=10)
+                ws_summary.clear()
+                set_with_dataframe(ws_summary, summary_df, include_index=False, include_column_header=True, resize=True)
 
-                # Write new data
-                set_with_dataframe(ws, export_df, include_index=False, include_column_header=True, resize=False)
+                # Write accepted
+                ws_accepted = upsert_worksheet(sh, "Accepted", rows=len(accepted_df)+10, cols=len(export_columns)+2)
+                ws_accepted.clear()
+                set_with_dataframe(ws_accepted, accepted_df, include_index=False, include_column_header=True, resize=True)
 
-            st.success(f"✅ Exported {len(export_df)} entries to worksheet: {tab_name}")
+                # Write rejected
+                ws_rejected = upsert_worksheet(sh, "Rejected", rows=len(rejected_df)+10, cols=len(export_columns)+2)
+                ws_rejected.clear()
+                set_with_dataframe(ws_rejected, rejected_df, include_index=False, include_column_header=True, resize=True)
+
+            # 4. Accepted Invoices tab (only accepted entries of type INVOICE)
+            accepted_invoices_df = accepted_df[accepted_df["type"] == "INVOICE"].copy()
+            accepted_invoices_export = accepted_invoices_df[[
+                "invoice_number", "date", "client_name", "amount", "vat", "total_amount"
+            ]].rename(columns={
+                "invoice_number": "Αριθμός τιμολογίου",
+                "date": "Ημερομηνία",
+                "client_name": "Πελάτης",
+                "amount": "Ποσό",
+                "vat": "ΦΠΑ",
+                "total_amount": "Σύνολο"
+            })
+            ws_acc_inv = upsert_worksheet(sh, "Accepted Invoices", rows=len(accepted_invoices_export)+10, cols=6)
+            ws_acc_inv.clear()
+            set_with_dataframe(ws_acc_inv, accepted_invoices_export, include_index=False, include_column_header=True, resize=True)
+
+            # 5. Accepted Forms tab (only accepted entries of type FORM)
+            accepted_forms_df = accepted_df[accepted_df["type"] == "FORM"].copy()
+            accepted_forms_export = accepted_forms_df[[
+                "client_name", "email", "phone", "company", "service_interest", "message"
+            ]].rename(columns={
+                "client_name": "Όνομα",
+                "email": "Email",
+                "phone": "Τηλέφωνο",
+                "company": "Εταιρεία",
+                "service_interest": "Υπηρεσία ενδιαφέροντος",
+                "message": "Μήνυμα" 
+            })
+
+            ws_acc_forms = upsert_worksheet(sh, "Accepted Forms", rows=len(accepted_forms_export)+10, cols=6)
+            ws_acc_forms.clear()
+            set_with_dataframe(ws_acc_forms, accepted_forms_export, include_index=False, include_column_header=True, resize=True)
+
+            # 6. Accepted Emails tab (only accepted entries of type EMAIL)
+            accepted_emails_df = accepted_df[accepted_df["type"] == "EMAIL"].copy()
+            accepted_emails_export = accepted_emails_df[[
+                "client_name", "email", "phone", "company", "service_interest", "message"
+            ]].rename(columns={
+                "client_name": "Όνομα",
+                "email": "Email",
+                "phone": "Τηλέφωνο",
+                "company": "Εταιρεία",
+                "service_interest": "Υπηρεσία ενδιαφέροντος",
+                "message": "Μήνυμα"
+            })
+
+            ws_acc_emails = upsert_worksheet(sh, "Accepted Emails", rows=len(accepted_emails_export)+10, cols=6)
+            ws_acc_emails.clear()
+            set_with_dataframe(ws_acc_emails, accepted_emails_export, include_index=False, include_column_header=True, resize=True)
+
+            st.success(f"✅ Exported summary, accepted, and rejected entries to Google Sheets!")
             st.balloons()
 
         except Exception as e:
@@ -1232,7 +1421,7 @@ def html_invoice_to_pdf(html_path: str) -> bytes:
     with open(html_path, "r", encoding="utf-8") as f:
         html_content = f.read()
 
-    # If you have a CSS file for styling, you can add it here
+    # a CSS file for styling, you can add it here
     css_path = "styles.css"
     css_files = []
     if os.path.exists(css_path):
@@ -1241,6 +1430,8 @@ def html_invoice_to_pdf(html_path: str) -> bytes:
     # Generate PDF
     pdf_bytes = HTML(string=html_content, base_url=os.path.dirname(html_path)).write_pdf(stylesheets=css_files)
     return pdf_bytes
+
+
 
 if __name__ == "__main__":
     main()

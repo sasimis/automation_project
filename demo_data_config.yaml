@@ -1,9 +1,0 @@
-
-forms_dir: "data/forms"
-emails_dir: "data/emails"
-invoices_dir: "data/invoices"
-excel_output: "outputs/approved.xlsx"
-audit_log: "outputs/audit.jsonl"
-google_sheets_enabled: true
-google_sheet_id: "1_VQEjJpB_BCmlBSDYvF_GZJMz6LvMotBCMQZTu9CNUw"
-google_worksheet_name: "Leads"

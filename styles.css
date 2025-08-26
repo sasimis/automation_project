@@ -2,7 +2,7 @@
    @import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
  
 
-/* Apply to your custom components */
+/* Apply to our custom components */
 .email-card,
 .email-subject,
 .email-body,
@@ -13,7 +13,7 @@
     font-weight: 300;
 }
 
-/* Apply to Streamlit components (may not work for all) */
+/* Apply to Streamlit components */
 .stApp,
 .stMarkdown,
 .stDataFrame,
@@ -355,3 +355,36 @@ cursor: pointer;
   text-overflow: ellipsis;
   max-width: 300px;
 }
+#tutorial {
+    background:#ffe066;
+    padding:8px 10px;border-radius:6px;
+    font-weight:bold;
+    color:#333;
+    animation: tutorial-flash 1s linear infinite alternate;
+    box-shadow: 0 0 0 0 #ffe066, 0 0 8px 2px #ffe066;
+    transition: box-shadow 0.2s;
+    width: fit-content;
+    margin-bottom: 0.2em !important;
+}
+
+@keyframes tutorial-flash {
+    0% {
+        box-shadow: 0 0 0 0 #ffe066, 0 0 8px 2px #ffe066;
+        background: #ffe066;
+    }
+    50% {
+        box-shadow: 0 0 12px 4px #ffe066, 0 0 24px 8px #ffe06655;
+        background: #fffbe6;
+    }
+    100% {
+        box-shadow: 0 0 0 0 #ffe066, 0 0 8px 2px #ffe066;
+        background: #ffe066;
+    }
+}
+#pending-tutorial-anchor {
+  margin-top: 140px;
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
