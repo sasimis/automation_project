@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="el">
+  <head>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background:#ECF0F1;
+        }
+      .slide-container {
+        width: 1280px;
+        min-height: 720px;
+        background: #ECF0F1;
+        font-family: 'Roboto', sans-serif;
+        color: #2C3E50;
+      }
+      .content {
+        padding: 40px;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      .title {
+        font-size: 36px;
+        font-weight: bold;
+        color: #2C3E50;
+        margin-bottom: 30px;
+        text-align: center;
+      }
+      .main-content {
+        display: flex;
+        justify-content: space-between;
+      }
+      .chart-section {
+        width: 55%;
+        background-color: #fff;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+      .chart-title {
+        font-weight: bold;
+        color: #3498DB;
+        margin-bottom: 15px;
+        text-align: center;
+        font-size: 18px;
+      }
+      .info-section {
+        width: 40%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .info-card {
+        background-color: #fff;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+      .info-title {
+        font-weight: bold;
+        color: #3498DB;
+        margin-bottom: 10px;
+        font-size: 18px;
+      }
+      .info-content {
+        color: #2C3E50;
+      }
+      .highlight {
+        color: #E74C3C;
+        font-weight: bold;
+      }
+      .data-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        padding-bottom: 5px;
+        border-bottom: 1px solid #ECF0F1;
+      }
+      .data-label {
+        font-weight: bold;
+      }
+      .link-button {
+            display: inline-block;
+            padding: 15px 30px;
+            background-color: #3498DB;
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        .link-button:hover {
+            background-color: #2980B9;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .link-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+  </head>
+  <body>
+    <a href="implementation_schedule.html" class="link-button">Previous slide</a>
+    <div class="slide-container">
+      <div class="content">
+        <h1 class="title">Κόστος και ROI Analysis</h1>
+        
+        <div class="main-content">
+          <div class="chart-section">
+            <div class="chart-title">Ανάλυση Απόσβεσης Επένδυσης</div>
+            <div style="height: 400px;">
+              <canvas id="roiChart"></canvas>
+            </div>
+          </div>
+          
+          <div class="info-section">
+            <div class="info-card">
+              <div class="info-title">Εκτίμηση Κόστους</div>
+              <div class="info-content">
+                <div class="data-row">
+                  <span class="data-label">Συνολικό Κόστος Ανάπτυξης:</span>
+                  <span class="highlight">16.000€</span>
+                </div>
+                <div class="data-row">
+                  <span class="data-label">Ανάλυση & Σχεδιασμός:</span>
+                  <span>2.000€</span>
+                </div>
+                <div class="data-row">
+                  <span class="data-label">Υλοποίηση Core Parsers:</span>
+                  <span>4.000€</span>
+                </div>
+                <div class="data-row">
+                  <span class="data-label">Ανάπτυξη User Interface:</span>
+                  <span>4.000€</span>
+                </div>
+                <div class="data-row">
+                  <span class="data-label">Integration & Testing:</span>
+                  <span>4.000€</span>
+                </div>
+                <div class="data-row">
+                  <span class="data-label">Τεκμηρίωση & Παράδοση:</span>
+                  <span>2.000€</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="info-card">
+              <div class="info-title">Return on Investment</div>
+              <div class="info-content">
+                <div class="data-row">
+                  <span class="data-label">Ετήσια Εξοικονόμηση:</span>
+                  <span class="highlight">6.600€/έτος</span>
+                </div>
+                <div class="data-row">
+                  <span class="data-label">ROI:</span>
+                  <span class="highlight">41.25%</span>
+                </div>
+                <div class="data-row">
+                  <span class="data-label">Χρόνος Απόσβεσης:</span>
+                  <span class="highlight">~2.5 έτη</span>
+                </div>
+                <div class="data-row">
+                  <span class="data-label">Μη-μετρήσιμα οφέλη:</span>
+                  <span>Βελτιωμένη ακρίβεια, ικανοποίηση υπαλλήλων, καλύτερη λήψη αποφάσεων</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <a href="ofeli.html" class="link-button">Next slide</a>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('roiChart').getContext('2d');
+        const roiChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: ['Έτος 0', 'Έτος 1', 'Έτος 2', 'Έτος 3', 'Έτος 4', 'Έτος 5'],
+            datasets: [
+              {
+                label: 'Συσσωρευμένη Εξοικονόμηση',
+                data: [0, 6600, 13200, 19800, 26400, 33000],
+                backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                borderColor: '#3498DB',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.1
+              },
+              {
+                label: 'Κόστος Επένδυσης',
+                data: [16000, 16000, 16000, 16000, 16000, 16000],
+                backgroundColor: 'rgba(231, 76, 60, 0.2)',
+                borderColor: '#E74C3C',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                fill: false
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                grid: {
+                  color: 'rgba(44, 62, 80, 0.1)'
+                },
+                ticks: {
+                  color: '#2C3E50'
+                }
+              },
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: 'Ευρώ (€)',
+                  color: '#2C3E50',
+                  font: {
+                    size: 14,
+                    weight: 'bold'
+                  }
+                },
+                ticks: {
+                  color: '#2C3E50',
+                  callback: function(value) {
+                    return value.toLocaleString() + '€';
+                  }
+                },
+                grid: {
+                  color: 'rgba(44, 62, 80, 0.1)'
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                position: 'top',
+                labels: {
+                  font: {
+                    size: 12
+                  },
+                  color: '#2C3E50'
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    return context.dataset.label + ': ' + context.raw.toLocaleString() + '€';
+                  }
+                }
+              },
+              annotation: {
+                annotations: {
+                  line1: {
+                    type: 'line',
+                    xMin: 2.4,
+                    xMax: 2.4,
+                    borderColor: '#2C3E50',
+                    borderWidth: 2,
+                    label: {
+                      content: 'Σημείο Απόσβεσης',
+                      enabled: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
+

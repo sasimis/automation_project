@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Διάγραμμα ροής</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        header {
+            background: #2C3E50;
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+        
+        .content {
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        
+        .flowchart-container {
+            background: #ECF0F1;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            overflow: auto;
+        }
+        
+        .flowchart-title {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #2C3E50;
+            font-size: 1.8rem;
+        }
+        
+        .description {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .description h2 {
+            color: #2C3E50;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+        
+        .description p {
+            margin-bottom: 15px;
+            line-height: 1.8;
+        }
+        
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .step {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #3498DB;
+        }
+        
+        .step h3 {
+            color: #2C3E50;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .step-number {
+            background: #3498DB;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        footer {
+            background: #2C3E50;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            margin-top: 30px;
+        }
+        
+        .buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 25px;
+            background: #3498DB;
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn:hover {
+            background: #2980B9;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .btn-download {
+            background: #2C3E50;
+        }
+        
+        .btn-download:hover {
+            background: #1E2A36;
+        }
+        
+        @media (max-width: 768px) {
+            .steps {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+        .link-button {
+            display: inline-block;
+            padding: 15px 30px;
+            background-color: #3498DB;
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        .link-button:hover {
+            background-color: #2980B9;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .link-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Διάγραμμα ροής</h1>
+            <p class="subtitle">Οπτική αναπαράσταση της ροής δεδομένων και διεργασιών</p>
+        </header>
+        
+        <div class="content">
+            <div class="description">
+                <h2>Σχετικά με το διάγραμμα ροής</h2>
+                <p>Αυτό το διάγραμμα ροής απεικονίζει την πορεία επεξεργασίας δεδομένων από διάφορες πηγές εισόδου έως την τελική εξαγωγή τους. Το σύστημα υποστηρίζει πολλούς τύπους αρχείων και παρέχει διεπαφή χρήστη για αλληλεπίδραση και έλεγχο των δεδομένων.</p>
+                
+                <div class="steps">
+                    <div class="step">
+                        <h3><span class="step-number">1</span>Εισαγωγή δεδομένων</h3>
+                        <p>Το σύστημα δέχεται αρχεία εισόδου σε διάφορες μορφές (.eml, .html, .pdf)</p>
+                    </div>
+                    <div class="step">
+                        <h3><span class="step-number">2</span>Επεξεργασία</h3>
+                        <p>Εξαγωγή και κανονικοποίηση δεδομένων από τους parsers</p>
+                    </div>
+                    <div class="step">
+                        <h3><span class="step-number">3</span>Παρουσίαση</h3>
+                        <p>Προβολή δεδομένων μέσω Streamlit UI για αλληλεπίδραση</p>
+                    </div>
+                    <div class="step">
+                        <h3><span class="step-number">4</span>Εξαγωγή</h3>
+                        <p>Αποθήκευση και εξαγωγή δεδομένων σε Google Sheets</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flowchart-container">
+                <h2 class="flowchart-title">Διάγραμμα ροής συστήματος</h2>
+                <!-- The SVG flowchart will be displayed here -->
+                <!-- Replace with your actual SVG file or link -->
+                <div style="width: 100%; overflow: auto; background: #1f2020; padding: 20px; border-radius: 8px;">
+                    <object data="flowchart.svg" type="image/svg+xml" width="100%" height="500" style="display: block; margin: 0 auto;">
+                        Your browser doesn't support SVG. Please update your browser or use a different one.
+                    </object>
+                </div>
+                
+                <div class="buttons">
+                    <a href="flowchart.svg" download="flowchart.svg" class="btn btn-download">
+                        <i class="fas fa-download"></i> Κατέβασμα διαγράμματος
+                    </a>
+                    <a href="tech_and_tools.html" class="btn">
+                        <i class="fas fa-info-circle"></i>Αρχική σελίδα
+                    </a>
+                </div>
+            </div>
+        </div>
+         
+
+        <footer>
+            <p>Διάγραμμα Ροής techflow automation by Stratos Asimis</p>
+        </footer>
+    </div>
+
+    <script>
+        // Simple JavaScript to handle the SVG loading state
+        document.addEventListener('DOMContentLoaded', function() {
+            const svgObject = document.querySelector('object');
+            
+            svgObject.addEventListener('load', function() {
+                console.log('SVG loaded successfully');
+            });
+            
+            svgObject.addEventListener('error', function() {
+                console.log('Error loading SVG');
+                // Display a message if the SVG fails to load
+                const container = svgObject.parentElement;
+                container.innerHTML = '<div style="text-align: center; color: white; padding: 40px;"><i class="fas fa-exclamation-triangle" style="font-size: 48px; margin-bottom: 20px;"></i><p>Το διάγραμμα δεν μπόρεσε να φορτωθεί. Βεβαιωθείτε ότι το αρχείο βρίσκεται στον σωστό φάκελο.</p></div>';
+            });
+        });
+    </script>
+</body>
+</html>

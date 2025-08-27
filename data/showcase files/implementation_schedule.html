@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="el">
+  <head>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1"></script>
+    <style>
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background:#ECF0F1;
+        }
+      .slide-container {
+        width: 1280px;
+        min-height: 720px;
+        background: #ECF0F1;
+        font-family: 'Roboto', sans-serif;
+        color: #2C3E50;
+      }
+      .content {
+        padding: 40px;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      .title {
+        font-size: 36px;
+        font-weight: bold;
+        color: #2C3E50;
+        margin-bottom: 30px;
+        text-align: center;
+      }
+      .main-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .timeline-container {
+        width: 90%;
+        margin-bottom: 40px;
+      }
+      .phase-details {
+        display: flex;
+        justify-content: space-between;
+        width: 90%;
+      }
+      .phase-card {
+        width: 30%;
+        background-color: #fff;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+      .phase-title {
+        font-weight: bold;
+        color: #3498DB;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+      }
+      .phase-title i {
+        margin-right: 10px;
+      }
+      .phase-description {
+        font-size: 16px;
+        color: #2C3E50;
+      }
+      .phase-duration {
+        font-weight: bold;
+        color: #E74C3C;
+        margin-top: 10px;
+        font-size: 14px;
+      }
+
+      .link-button {
+            display: inline-block;
+            padding: 15px 30px;
+            background-color: #3498DB;
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        .link-button:hover {
+            background-color: #2980B9;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .link-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+  </head>
+  <body>
+    <a href="tech_and_tools.html" class="link-button">Previous slide</a>
+    <div class="slide-container">
+      <div class="content">
+        <h1 class="title">Χρονοδιάγραμμα Υλοποίησης</h1>
+        
+        <div class="main-content">
+          <div class="timeline-container">
+            <div style="height: 300px;">
+              <canvas id="timelineChart"></canvas>
+            </div>
+          </div>
+          
+          <div class="phase-details">
+            <div class="phase-card">
+              <div class="phase-title">
+                <i class="fas fa-search"></i> Ανάλυση & Σχεδιασμός
+              </div>
+              <div class="phase-description">
+                <ul class="list-disc pl-5">
+                  <li>Λεπτομερής ανάλυση αναγκών πελάτη</li>
+                  <li>Σχεδιασμός αρχιτεκτονικής συστήματος</li>
+                  <li>Επιλογή τεχνολογιών και εργαλείων</li>
+                </ul>
+              </div>
+              <div class="phase-duration">
+                Διάρκεια: 1 εβδομάδα
+              </div>
+            </div>
+            
+            <div class="phase-card">
+              <div class="phase-title">
+                <i class="fas fa-code"></i> Υλοποίηση Core Parsers
+              </div>
+              <div class="phase-description">
+                <ul class="list-disc pl-5">
+                  <li>Ανάπτυξη Email Parser</li>
+                  <li>Ανάπτυξη Form Parser</li>
+                  <li>Ανάπτυξη Invoice Parser</li>
+                  <li>Unit Tests για κάθε parser</li>
+                </ul>
+              </div>
+              <div class="phase-duration">
+                Διάρκεια: 2 εβδομάδες
+              </div>
+            </div>
+            
+            <div class="phase-card">
+              <div class="phase-title">
+                <i class="fas fa-desktop"></i> Ανάπτυξη User Interface
+              </div>
+              <div class="phase-description">
+                <ul class="list-disc pl-5">
+                  <li>Σχεδιασμός και υλοποίηση Streamlit Dashboard</li>
+                  <li>Ενσωμάτωση προβολής δεδομένων</li>
+                  <li>Υλοποίηση Human-in-the-Loop controls</li>
+                </ul>
+              </div>
+              <div class="phase-duration">
+                Διάρκεια: 2 εβδομάδες
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <a href="roi.html" class="link-button">Next slide</a>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('timelineChart').getContext('2d');
+        const timelineChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: ['Ανάλυση & Σχεδιασμός', 'Υλοποίηση Core Parsers', 'Ανάπτυξη UI', 'Integration & Google Sheets', 'Testing & Βελτιστοποίηση', 'Τεκμηρίωση & Παράδοση'],
+            datasets: [{
+              label: 'Διάρκεια (εβδομάδες)',
+              data: [1, 2, 2, 1, 1, 1],
+              backgroundColor: [
+                '#3498DB',
+                '#3498DB',
+                '#3498DB',
+                '#3498DB',
+                '#3498DB',
+                '#3498DB'
+              ],
+              borderColor: '#2C3E50',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            scales: {
+              x: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: 'Εβδομάδες',
+                  color: '#2C3E50',
+                  font: {
+                    size: 14,
+                    weight: 'bold'
+                  }
+                },
+                ticks: {
+                  color: '#2C3E50'
+                },
+                grid: {
+                  color: 'rgba(44, 62, 80, 0.1)'
+                }
+              },
+              y: {
+                ticks: {
+                  color: '#2C3E50'
+                },
+                grid: {
+                  display: false
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                display: false
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    return context.raw + ' εβδομάδες';
+                  }
+                }
+              }
+            }
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
+

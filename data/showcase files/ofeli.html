@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="el">
+  <head>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1"></script>
+    <style>
+         body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background:#ECF0F1;
+        }
+      .slide-container {
+        width: 1280px;
+        min-height: 720px;
+        background: #ECF0F1;
+        font-family: 'Roboto', sans-serif;
+        color: #2C3E50;
+      }
+      .content {
+        padding: 40px;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      .title {
+        font-size: 36px;
+        font-weight: bold;
+        color: #2C3E50;
+        margin-bottom: 30px;
+        text-align: center;
+      }
+      .main-content {
+        display: flex;
+        justify-content: space-between;
+      }
+      .chart-section {
+        width: 55%;
+        background-color: #fff;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+      .chart-title {
+        font-weight: bold;
+        color: #3498DB;
+        margin-bottom: 15px;
+        text-align: center;
+        font-size: 18px;
+      }
+      .benefits-section {
+        width: 40%;
+      }
+      .benefit-item {
+        background-color: #fff;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        display: flex;
+        align-items: flex-start;
+      }
+      .benefit-icon {
+        width: 50px;
+        height: 50px;
+        background-color: #3498DB;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-right: 15px;
+        flex-shrink: 0;
+      }
+      .benefit-icon i {
+        color: #fff;
+        font-size: 24px;
+      }
+      .benefit-content {
+        flex-grow: 1;
+      }
+      .benefit-title {
+        font-weight: bold;
+        color: #2C3E50;
+        margin-bottom: 5px;
+      }
+      .benefit-description {
+        font-size: 14px;
+        color: #2C3E50;
+      }
+      .link-button {
+            display: inline-block;
+            padding: 15px 30px;
+            background-color: #3498DB;
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        .link-button:hover {
+            background-color: #2980B9;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .link-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+  </head>
+  <body>
+    <a href="roi.html" class="link-button">Previous slide</a>
+    <div class="slide-container">
+      <div class="content">
+        <h1 class="title">Οφέλη</h1>
+        
+        <div class="main-content">
+          <div class="chart-section">
+            <div class="chart-title">Εκτιμώμενη Βελτίωση Αποδοτικότητας</div>
+            <div style="height: 400px;">
+              <canvas id="benefitsChart"></canvas>
+            </div>
+          </div>
+          
+          <div class="benefits-section">
+            <div class="benefit-item">
+              <div class="benefit-icon">
+                <i class="fas fa-tachometer-alt"></i>
+              </div>
+              <div class="benefit-content">
+                <div class="benefit-title">Αυξημένη Αποδοτικότητα</div>
+                <div class="benefit-description">
+                  Αυτοματοποίηση χρονοβόρων εργασιών, απελευθερώνοντας ανθρώπινους πόρους για πιο δημιουργικές και στρατηγικές εργασίες.
+                </div>
+              </div>
+            </div>
+            
+            <div class="benefit-item">
+              <div class="benefit-icon">
+                <i class="fas fa-check-double"></i>
+              </div>
+              <div class="benefit-content">
+                <div class="benefit-title">Βελτιωμένη Ακρίβεια Δεδομένων</div>
+                <div class="benefit-description">
+                  Μείωση των ανθρώπινων λαθών μέσω αυτοματοποιημένης επεξεργασίας και ελέγχων, οδηγώντας σε πιο αξιόπιστα δεδομένα.
+                </div>
+              </div>
+            </div>
+            
+            <div class="benefit-item">
+              <div class="benefit-icon">
+                <i class="fas fa-database"></i>
+              </div>
+              <div class="benefit-content">
+                <div class="benefit-title">Κεντρική Διαχείριση Δεδομένων</div>
+                <div class="benefit-description">
+                  Ενοποίηση δεδομένων σε ένα προσβάσιμο και εύκολα διαχειρίσιμο περιβάλλον (Google Sheets), βελτιώνοντας τη συνεργασία.
+                </div>
+              </div>
+            </div>
+            
+            <div class="benefit-item">
+              <div class="benefit-icon">
+                <i class="fas fa-expand-arrows-alt"></i>
+              </div>
+              <div class="benefit-content">
+                <div class="benefit-title">Ευελιξία & Επεκτασιμότητα</div>
+                <div class="benefit-description">
+                  Η αρχιτεκτονική επιτρέπει την εύκολη επέκταση για την υποστήριξη νέων πηγών δεδομένων ή μορφών στο μέλλον.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <a href="flowchart.html" class="link-button">Next slide</a>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('benefitsChart').getContext('2d');
+        const benefitsChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: ['Χρόνος Επεξεργασίας', 'Ακρίβεια Δεδομένων', 'Κόστος Λειτουργίας', 'Ικανοποίηση Υπαλλήλων'],
+            datasets: [
+              {
+                label: 'Πριν την Αυτοματοποίηση',
+                data: [100, 75, 100, 60],
+                backgroundColor: '#2C3E50',
+                borderColor: '#2C3E50',
+                borderWidth: 1
+              },
+              {
+                label: 'Μετά την Αυτοματοποίηση',
+                data: [25, 95, 25, 90],
+                backgroundColor: '#3498DB',
+                borderColor: '#3498DB',
+                borderWidth: 1
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                grid: {
+                  color: 'rgba(44, 62, 80, 0.1)'
+                },
+                ticks: {
+                  color: '#2C3E50'
+                }
+              },
+              y: {
+                beginAtZero: true,
+                max: 100,
+                title: {
+                  display: true,
+                  text: 'Σχετική Τιμή (%)',
+                  color: '#2C3E50',
+                  font: {
+                    size: 14,
+                    weight: 'bold'
+                  }
+                },
+                ticks: {
+                  color: '#2C3E50',
+                  callback: function(value) {
+                    return value + '%';
+                  }
+                },
+                grid: {
+                  color: 'rgba(44, 62, 80, 0.1)'
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                position: 'top',
+                labels: {
+                  font: {
+                    size: 12
+                  },
+                  color: '#2C3E50'
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    return context.dataset.label + ': ' + context.raw + '%';
+                  }
+                }
+              }
+            }
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
+

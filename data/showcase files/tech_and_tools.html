@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="el">
+  <head>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1"></script>
+    <style>
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background:#ECF0F1;
+        }
+      .slide-container {
+        width: 1280px;
+        min-height: 720px;
+        background: #ECF0F1;
+        font-family: 'Roboto', sans-serif;
+        color: #2C3E50;
+      }
+      .content {
+        padding: 40px;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      .title {
+        font-size: 36px;
+        font-weight: bold;
+        color: #2C3E50;
+        margin-bottom: 30px;
+        text-align: center;
+      }
+      .main-content {
+        display: flex;
+        justify-content: space-between;
+      }
+      .tech-list {
+        width: 55%;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+      }
+      .tech-item {
+        width: 48%;
+        background-color: #fff;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        display: flex;
+        align-items: center;
+      }
+      .tech-icon {
+        width: 50px;
+        height: 50px;
+        background-color: #3498DB;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-right: 15px;
+        flex-shrink: 0;
+      }
+      .tech-icon i {
+        color: #fff;
+        font-size: 24px;
+      }
+      .tech-details {
+        flex-grow: 1;
+      }
+      .tech-name {
+        font-weight: bold;
+        color: #2C3E50;
+        margin-bottom: 5px;
+      }
+      .tech-description {
+        font-size: 14px;
+        color: #2C3E50;
+      }
+      .chart-section {
+        width: 40%;
+        background-color: #fff;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+      .chart-title {
+        font-weight: bold;
+        color: #3498DB;
+        margin-bottom: 15px;
+        text-align: center;
+      }
+
+
+        .link-button {
+            display: inline-block;
+            padding: 15px 30px;
+            background-color: #3498DB;
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        
+        .link-button:hover {
+            background-color: #2980B9;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .link-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+  </head>
+  <body>
+    <div class="slide-container">
+      <div class="content">
+        <h1 class="title">Τεχνολογίες και Εργαλεία</h1>
+        
+        <div class="main-content">
+          <div class="tech-list">
+            <div class="tech-item">
+              <div class="tech-icon">
+                <i class="fab fa-python"></i>
+              </div>
+              <div class="tech-details">
+                <div class="tech-name">Python</div>
+                <div class="tech-description">Κύρια γλώσσα προγραμματισμού για την ανάπτυξη της λογικής του parser και της εφαρμογής.</div>
+              </div>
+            </div>
+            
+            <div class="tech-item">
+              <div class="tech-icon">
+                <i class="fas fa-stream"></i>
+              </div>
+              <div class="tech-details">
+                <div class="tech-name">Streamlit</div>
+                <div class="tech-description">Framework για την ταχεία ανάπτυξη του web-based user interface.</div>
+              </div>
+            </div>
+            
+            <div class="tech-item">
+              <div class="tech-icon">
+                <i class="fas fa-table"></i>
+              </div>
+              <div class="tech-details">
+                <div class="tech-name">Pandas</div>
+                <div class="tech-description">Για την αποτελεσματική διαχείριση και επεξεργασία των δεδομένων σε μορφή DataFrames.</div>
+              </div>
+            </div>
+            
+            <div class="tech-item">
+              <div class="tech-icon">
+                <i class="fas fa-code"></i>
+              </div>
+              <div class="tech-details">
+                <div class="tech-name">BeautifulSoup</div>
+                <div class="tech-description">Για την ανάλυση HTML περιεχομένου (φόρμες, τιμολόγια).</div>
+              </div>
+            </div>
+            
+            <div class="tech-item">
+              <div class="tech-icon">
+                <i class="fas fa-envelope"></i>
+              </div>
+              <div class="tech-details">
+                <div class="tech-name">email module</div>
+                <div class="tech-description">Python Standard Library για την ανάλυση αρχείων .eml.</div>
+              </div>
+            </div>
+            
+            <div class="tech-item">
+              <div class="tech-icon">
+                <i class="fab fa-google-drive"></i>
+              </div>
+              <div class="tech-details">
+                <div class="tech-name">gspread</div>
+                <div class="tech-description">Για την απρόσκοπτη σύνδεση και αλληλεπίδραση με τα Google Sheets.</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="chart-section">
+            <div class="chart-title">Κατανομή Τεχνολογιών στο Έργο</div>
+            <div style="height: 400px;">
+              <canvas id="techChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <a href="implementation_schedule.html" class="link-button">Next slide</a>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('techChart').getContext('2d');
+        const techChart = new Chart(ctx, {
+          type: 'pie',
+          data: {
+            labels: ['Python Core', 'Streamlit', 'Pandas', 'BeautifulSoup', 'Email Module', 'Google Sheets API'],
+            datasets: [{
+              data: [30, 25, 20, 10, 5, 10],
+              backgroundColor: [
+                '#3498DB',
+                '#2C3E50',
+                '#E74C3C',
+                '#9B59B6',
+                '#2ECC71',
+                '#F39C12'
+              ],
+              borderColor: '#ECF0F1',
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  font: {
+                    size: 14
+                  },
+                  color: '#2C3E50'
+                }
+              },
+              title: {
+                display: false
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    return context.label + ': ' + context.raw + '%';
+                  }
+                }
+              }
+            }
+          }
+        });
+      });
+    </script>
+    
+  </body>
+</html>
+
