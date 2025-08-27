@@ -28,7 +28,7 @@ A comprehensive Streamlit application for processing and managing emails, forms,
 
 1. Clone the repository:
 ```bash
-git clone <your-repo-url>
+git clone sasimis/automation_project
 cd techflow-automation
 ```
 
