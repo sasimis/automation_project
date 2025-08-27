@@ -6,3 +6,10 @@ __pycache__/
 node_modules/
 .idea/
 .vscode/
+# Secrets & local state
+google-credentials.json
+*.db
+data/
+outputs/
+.env
+.streamlit/secrets.toml

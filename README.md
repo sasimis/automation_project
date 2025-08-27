@@ -26,11 +26,16 @@ A comprehensive Streamlit application for processing and managing emails, forms,
 
 ### Installation
 
-1. Clone the repository:
+1. ### Install
 ```bash
-git clone sasimis/automation_project
-cd techflow-automation
-```
+git clone https://github.com/sasimis/automation_project.git
+cd automation_project
+python -m venv .venv
+# macOS/Linux:
+source .venv/bin/activate
+# Windows:
+# .venv\Scripts\activate
+pip install -r requirements.txt
 
 2. Create and activate a virtual environment:
 ```bash
