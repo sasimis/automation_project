@@ -1,0 +1,8 @@
+[server]
+headless = true
+
+[theme]
+base="light"
+
+[ui]
+# layout isn’t in TOML, keep layout via set_page_config if you need “wide”

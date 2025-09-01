@@ -14,6 +14,14 @@ pyyaml==6.0.1
 pdfplumber==0.11.0
 streamlit-autorefresh==1.0.1
 fpdf==1.7.2
-weasyprint==61.2
 html5lib==1.1
 PyMuPDF==1.24.2
+pandas>=2.0.0
+streamlit>=1.32.0
+python-dateutil>=2.9.0
+beautifulsoup4>=4.12.0
+gspread>=6.0.0
+gspread-dataframe>=3.3.0
+fpdf>=1.7.2
+weasyprint==62.3
+pydyf==0.10.0
