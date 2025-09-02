@@ -26,6 +26,14 @@ from fpdf import FPDF
 from weasyprint import HTML
 from scroll_to_anchor import scroll_to
 # ===================== Configuration =====================
+
+st.set_page_config(
+        page_title="Custom Automation", 
+        page_icon="📊", 
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+st.title("📊 Custom Automation Project")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -597,15 +605,6 @@ def process_data(email_df, form_df, invoice_df):
 def main():
     # Load CSS from external file
     load_css("styles.css")
-
-    # Page configuration
-    st.set_page_config(
-        page_title="Custom Automation", 
-        page_icon="📊", 
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-    st.title("📊 Custom Automation Project")
     
     # ===================== Tutorial =====================
     if "tutorial_step" not in st.session_state:
@@ -934,8 +933,8 @@ def main():
         if entry_type == "EMAIL":
             msg_html = format_content(message, is_html_val)
         else:
-            msg_html = f'<div class="email-content"><p>{html.escape(message).replace("\\n", "<br>")}</p></div>'
-
+             safe_message = html.escape(message or "").replace("\n", "<br>")
+             msg_html = f'<div class="email-content"><p>{safe_message}</p></div>'
         # Build metadata chips
         chips_html = "".join([
             chip_html("📅", date_val, "date"),
