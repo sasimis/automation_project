@@ -1,19 +1,13 @@
 version: '3.8'
 services:
   main-app:
-    build: .
+    image: my-automation-app  # Use pre-built image
     command: python -m streamlit run app/main2.py --server.port=8501 --server.address=0.0.0.0
-    ports:
-      - "8501:8501"
-    volumes:
-      - ./data:/app/data
-      - .:/app
+    ports: ["8501:8501"]
+    volumes: ["./data:/app/data"]
 
-  html_viewer:
-    build: .
-    command: python -m streamlit run app/html_viewer.py --server.port=8502 --server.address=0.0.0.0  # ✅ Correct path
-    ports:
-      - "8502:8502"
-    volumes:
-      - ./data:/app/data
-      - .:/app
+  html-viewer:
+    image: my-automation-app  # Reuse same image
+    command: python -m streamlit run app/html_viewer.py --server.port=8501 --server.address=0.0.0.0
+    ports: ["8502:8501"]
+    volumes: ["./data:/app/data"]

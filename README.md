@@ -6,6 +6,13 @@ A comprehensive Streamlit application for processing and managing emails, forms,
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.28.0-red)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
+## 🐳 Docker Deployment
+
+### Single Container:
+```bash
+docker build -t automation-app .
+docker run -p 8501:8501 automation-app
+
 Παρουσίαση εργασίας: https://sasimis.github.io/automation_project/tech_and_tools.html
 
 ## ✨ Features
