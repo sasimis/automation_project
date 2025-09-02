@@ -1,18 +1,19 @@
-
+version: '3.8'
 services:
-  automation_app:
+  main-app:
     build: .
+    command: python -m streamlit run app/main2.py --server.port=8501 --server.address=0.0.0.0
     ports:
       - "8501:8501"
-    environment:
-      # If you need Google credentials at runtime, mount or pass them here:
-      # Example: use service account JSON inside the container
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/google-credentials.json
-      # Optional Streamlit tweaks:
-      - STREAMLIT_SERVER_HEADLESS=true
-      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
     volumes:
-      # live-reload code (hot reload is fine for Streamlit)
-      - .:/app:delegated
-      # If you don’t want live bind-mounts in prod, remove the line above.
-    restart: unless-stopped
+      - ./data:/app/data
+      - .:/app
+
+  html_viewer:
+    build: .
+    command: python -m streamlit run app/html_viewer.py --server.port=8502 --server.address=0.0.0.0  # ✅ Correct path
+    ports:
+      - "8502:8502"
+    volumes:
+      - ./data:/app/data
+      - .:/app

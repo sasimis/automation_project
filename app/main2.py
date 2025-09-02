@@ -33,7 +33,8 @@ st.set_page_config(
         layout="wide",
         initial_sidebar_state="expanded"
     )
-st.title("📊 Custom Automation Project")
+st.title("")
+st.title("📊 Automation Project")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
